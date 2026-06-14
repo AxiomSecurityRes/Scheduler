@@ -51,7 +51,7 @@ Scheduler/
 │   ├── service-worker.js      # 오프라인 캐싱 + 푸시 수신
 │   ├── offline.html           # 오프라인 폴백
 │   ├── css/styles.css         # 보조 스타일
-│   ├── icons/                 # 앱 아이콘(192·512·maskable)
+│   ├── icons/                 # 앱 아이콘(SVG, any·maskable)
 │   └── js/
 │       ├── config.js          # 🔧 공개 설정(직접 입력)
 │       ├── supabaseClient.js  # Supabase 브라우저 클라이언트

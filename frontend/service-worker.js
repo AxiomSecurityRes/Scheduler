@@ -22,8 +22,8 @@ const APP_SHELL = [
   "/js/detail.js",
   "/js/notifications.js",
   "/js/pwa.js",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  "/icons/icon.svg",
+  "/icons/icon-maskable.svg",
 ];
 
 // --- 설치: 앱 셸 캐싱 ---
@@ -111,8 +111,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/icon.svg",
+    badge: "/icons/icon.svg",
     vibrate: [80, 40, 80],
     data: { url: data.url || "/" },
     tag: data.tag || "class8",
