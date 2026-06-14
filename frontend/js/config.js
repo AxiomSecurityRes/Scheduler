@@ -10,9 +10,9 @@
 // ============================================================================
 
 export const CONFIG = {
-  SUPABASE_URL: "https://your-project-ref.supabase.co",
-  SUPABASE_ANON_KEY: "your-anon-public-key",
-  VAPID_PUBLIC_KEY: "your-vapid-public-key",
+  SUPABASE_URL: "https://ubcruggwmbkxecorjvjr.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViY3J1Z2d3bWJreGVjb3JqdmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MzY5ODMsImV4cCI6MjA5NzAxMjk4M30.ZOqlO2zgIxCh-9YpUDFL-1SfIBjciQjcbfcwDRCtKC0",
+  VAPID_PUBLIC_KEY: "BPFs1ufApR9tDwsQmP34xozuBvb-unR1zM__5VtsDaxCRTpzbamdO-PmeA8YBFGeUFOfGEVjaoK7Z7m2nHSxZis",
 
   // 백엔드 API 베이스. 프론트와 백엔드가 같은 도메인이면 "" 로 둡니다.
   API_BASE: "",
