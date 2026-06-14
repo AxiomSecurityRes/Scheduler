@@ -9,7 +9,7 @@ import { session } from "./auth.js";
 import { openAssignmentForm } from "./dashboard.js";
 import {
   $, el, esc, toast, openModal, confirmDialog, ddayLabel, ddayStyle,
-  fmtDate, fmtDateTime, subjectColor, spinner,
+  fmtDate, fmtDateTime, subjectColor, spinner, fileIcon, fmtBytes,
 } from "./ui.js";
 
 let _navigate = null;
@@ -64,6 +64,28 @@ function build(a, comments, completed) {
             <div class="mt-5">
               <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">평가 범위 · 상세 안내</h2>
               <p class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-200">${esc(a.description)}</p>
+            </div>` : ""}
+
+          ${(a.files || []).length ? `
+            <div class="mt-5">
+              <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">첨부 파일</h2>
+              <div class="space-y-2">
+                ${a.files.map((f) => `
+                  <a href="${esc(f.url)}" target="_blank" rel="noopener" download="${esc(f.name)}"
+                     class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition group">
+                    <span class="text-xl">${fileIcon(f.name, f.type)}</span>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate">${esc(f.name)}</p>
+                      ${f.size ? `<p class="text-[11px] text-slate-400">${esc(fmtBytes(f.size))}</p>` : ""}
+                    </div>
+                    <span class="text-slate-400 group-hover:text-brand-600 transition text-lg">⬇️</span>
+                  </a>`).join("")}
+              </div>
+            </div>` : ""}
+
+          ${(a.tags || []).length ? `
+            <div class="mt-4 flex flex-wrap gap-1.5">
+              ${a.tags.map((t) => `<span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">#${esc(t)}</span>`).join("")}
             </div>` : ""}
 
           <div class="mt-6 flex items-center gap-2">

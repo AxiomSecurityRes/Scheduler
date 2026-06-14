@@ -4,18 +4,23 @@
 import {
   listAssignments, listPersonalEvents, listMyCompletions, setCompletion,
   createPersonalEvent, updatePersonalEvent, deletePersonalEvent,
-  createAssignment, updateAssignment, deleteAssignment, uploadImages,
+  createAssignment, updateAssignment, deleteAssignment, uploadImages, uploadFiles,
 } from "./store.js";
 import { session } from "./auth.js";
 import {
   $, el, esc, toast, openModal, confirmDialog, ddayLabel, ddayStyle,
-  fmtDate, subjectColor, spinner, daysUntil,
+  fmtDate, subjectColor, spinner, daysUntil, fileIcon, fmtBytes,
 } from "./ui.js";
+import { buildCalendar } from "./calendar.js";
+import { buildNeisWidget } from "./neis.js";
+import { parseTags } from "./faq.js";
 
 // 대시보드 화면 상태
 const state = {
   view: "all",        // all | class | personal
+  mode: "list",       // list | calendar
   subject: "전체",
+  tag: null,          // 선택된 태그 필터
   showCompleted: true,
   assignments: [],
   personal: [],
@@ -40,6 +45,9 @@ export async function renderDashboard(navigate) {
 function buildShell() {
   const wrap = el(`
     <div class="max-w-3xl mx-auto px-4 pb-28 pt-4 animate-fade-in">
+      <!-- NEIS 위젯 (급식 · 시간표) -->
+      <div id="neis-slot"></div>
+
       <!-- 필터 바 -->
       <div class="sticky top-[60px] z-20 -mx-4 px-4 py-3 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur
                   border-b border-slate-200/60 dark:border-slate-800/60">
@@ -49,20 +57,26 @@ function buildShell() {
             <button data-view="class" class="view-btn flex-1 py-1.5 rounded-lg transition">학급 공통</button>
             <button data-view="personal" class="view-btn flex-1 py-1.5 rounded-lg transition">개인</button>
           </div>
+          <button id="toggle-mode" title="리스트 / 캘린더 전환"
+            class="w-9 h-9 rounded-xl bg-slate-200/70 dark:bg-slate-800 grid place-items-center text-sm transition">🗓️</button>
           <button id="toggle-completed" title="완료 항목 표시"
             class="w-9 h-9 rounded-xl bg-slate-200/70 dark:bg-slate-800 grid place-items-center text-sm transition">👁️</button>
         </div>
         <div id="subject-chips" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+        <div id="tag-chips" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mt-2 empty:hidden"></div>
       </div>
 
       <!-- 요약 -->
       <div id="dash-summary" class="grid grid-cols-3 gap-3 my-4"></div>
 
-      <!-- 목록 -->
+      <!-- 목록 / 캘린더 -->
       <div id="dash-list" class="space-y-3"></div>
     </div>
 
     `);
+
+  // NEIS 위젯 마운트
+  wrap.querySelector("#neis-slot").appendChild(buildNeisWidget());
 
   // FAB 는 별도로 body 레벨에 추가
   wrap.appendChild(buildFab());
@@ -71,6 +85,12 @@ function buildShell() {
   wrap.querySelectorAll(".view-btn").forEach((b) => {
     b.onclick = () => { state.view = b.dataset.view; syncViewButtons(wrap); renderList(); renderSummary(); };
   });
+  wrap.querySelector("#toggle-mode").onclick = (e) => {
+    state.mode = state.mode === "list" ? "calendar" : "list";
+    e.currentTarget.textContent = state.mode === "calendar" ? "📋" : "🗓️";
+    e.currentTarget.title = state.mode === "calendar" ? "리스트로 보기" : "캘린더로 보기";
+    renderList();
+  };
   wrap.querySelector("#toggle-completed").onclick = (e) => {
     state.showCompleted = !state.showCompleted;
     e.currentTarget.style.opacity = state.showCompleted ? "1" : "0.4";
@@ -114,6 +134,7 @@ async function refresh() {
     state.personal = personal;
     state.completions = completions;
     renderSubjectChips();
+    renderTagChips();
     renderSummary();
     renderList();
   } catch (e) {
@@ -144,6 +165,8 @@ function combinedItems() {
         description: a.description,
         due_date: a.due_date,
         images: a.images || [],
+        files: a.files || [],
+        tags: a.tags || [],
         completed: !!state.completions[a.id],
         raw: a,
       });
@@ -160,6 +183,8 @@ function combinedItems() {
         description: p.description,
         due_date: p.due_date,
         images: [],
+        files: [],
+        tags: [],
         completed: !!p.completed,
         raw: p,
       });
@@ -169,6 +194,8 @@ function combinedItems() {
   let filtered = state.subject === "전체"
     ? items
     : items.filter((i) => (i.subject || "기타") === state.subject);
+  // 태그 필터
+  if (state.tag) filtered = filtered.filter((i) => (i.tags || []).includes(state.tag));
   if (!state.showCompleted) filtered = filtered.filter((i) => !i.completed);
 
   // 정렬: 마감 임박순 (기한 없는 항목은 맨 뒤), 완료는 더 뒤로
@@ -206,6 +233,26 @@ function renderSubjectChips() {
   );
 }
 
+function renderTagChips() {
+  const box = $("#tag-chips");
+  if (!box) return;
+  const tags = new Set();
+  state.assignments.forEach((a) => (a.tags || []).forEach((t) => tags.add(t)));
+  if (!tags.size) { box.replaceChildren(); return; }
+  box.replaceChildren(
+    ...[...tags].map((t) => {
+      const active = state.tag === t;
+      const chip = el(`
+        <button class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold transition border
+          ${active
+            ? "bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200"
+            : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"}">#${esc(t)}</button>`);
+      chip.onclick = () => { state.tag = active ? null : t; renderTagChips(); renderList(); };
+      return chip;
+    })
+  );
+}
+
 function renderSummary() {
   const box = $("#dash-summary");
   if (!box) return;
@@ -231,6 +278,20 @@ function renderList() {
   const box = $("#dash-list");
   if (!box) return;
   const items = combinedItems();
+
+  // 캘린더 뷰
+  if (state.mode === "calendar") {
+    box.classList.remove("space-y-3");
+    box.replaceChildren(buildCalendar(items, {
+      onItemClick: (it) => {
+        if (it.kind === "class") _navigate(`#/detail/${it.id}`);
+        else openEventForm("personal", it.raw);
+      },
+    }));
+    return;
+  }
+  box.classList.add("space-y-3");
+
   if (!items.length) {
     box.replaceChildren(el(`
       <div class="text-center py-16 text-slate-400 animate-fade-in">
@@ -264,11 +325,13 @@ function buildCard(item) {
             : `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">개인</span>`}
           ${item.subject ? `<span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
               <span class="w-2 h-2 rounded-full" style="background:${subjectColor(item.subject)}"></span>${esc(item.subject)}</span>` : ""}
-          ${item.images?.length ? `<span class="text-[11px] text-slate-400">📎${item.images.length}</span>` : ""}
+          ${item.images?.length ? `<span class="text-[11px] text-slate-400">🖼️${item.images.length}</span>` : ""}
+          ${item.files?.length ? `<span class="text-[11px] text-slate-400">📎${item.files.length}</span>` : ""}
         </div>
         <h3 class="completable-title font-bold text-[15px] leading-snug clamp-2">${esc(item.title)}</h3>
         ${item.description ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 clamp-2">${esc(item.description)}</p>` : ""}
         <p class="text-[11px] text-slate-400 mt-1.5">📅 ${esc(fmtDate(item.due_date))}</p>
+        ${(item.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${item.tags.map((t) => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">#${esc(t)}</span>`).join("")}</div>` : ""}
       </div>
     </article>`);
 
@@ -370,7 +433,7 @@ function openEventForm(kind, existing = null) {
         toast("추가되었습니다.", "success");
       }
       close();
-      renderSubjectChips(); renderSummary(); renderList();
+      renderSubjectChips(); renderTagChips(); renderSummary(); renderList();
     } catch (err) { toast("저장 실패: " + (err?.message || ""), "error"); }
   };
 
@@ -389,6 +452,7 @@ function openEventForm(kind, existing = null) {
 export function openAssignmentForm(existing = null) {
   const isEdit = !!existing;
   let images = existing?.images ? [...existing.images] : [];
+  let docs = existing?.files ? [...existing.files] : [];
 
   const node = el(`
     <div class="p-5">
@@ -417,6 +481,17 @@ export function openAssignmentForm(existing = null) {
           </label>
           <span data-uploading class="text-xs text-brand-500 ml-2 hidden">업로드 중...</span>
         </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">첨부 문서 (PDF · HWPX · PPTX 등)</label>
+          <div data-docs class="space-y-1.5 mb-2"></div>
+          <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-600
+                  text-sm text-slate-500 cursor-pointer hover:border-brand-400 transition">
+            <span>📎 파일 추가</span>
+            <input type="file" accept=".pdf,.hwp,.hwpx,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,.zip,.txt" multiple class="hidden" data-docfile />
+          </label>
+          <span data-docuploading class="text-xs text-brand-500 ml-2 hidden">업로드 중...</span>
+        </div>
+        ${fieldText("tags", "태그 (쉼표로 구분)", (existing?.tags || []).join(", "), "수행평가양식, 제출기한")}
         <div class="flex gap-2 pt-2">
           ${isEdit ? `<button type="button" data-del class="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 font-semibold text-sm">삭제</button>` : ""}
           <button type="submit" class="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition">
@@ -454,6 +529,36 @@ export function openAssignmentForm(existing = null) {
     finally { uploading.classList.add("hidden"); e.target.value = ""; }
   });
 
+  // 문서 첨부
+  const docsBox = node.querySelector("[data-docs]");
+  const docUploading = node.querySelector("[data-docuploading]");
+  function renderDocs() {
+    docsBox.replaceChildren(...docs.map((f, i) => {
+      const row = el(`
+        <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm">
+          <span>${fileIcon(f.name, f.type)}</span>
+          <span class="flex-1 min-w-0 truncate">${esc(f.name)}</span>
+          <span class="text-[11px] text-slate-400 shrink-0">${esc(fmtBytes(f.size))}</span>
+          <button type="button" class="w-5 h-5 rounded-full bg-slate-300/60 dark:bg-slate-600 text-xs grid place-items-center shrink-0">×</button>
+        </div>`);
+      row.querySelector("button").onclick = () => { docs.splice(i, 1); renderDocs(); };
+      return row;
+    }));
+  }
+  renderDocs();
+
+  node.querySelector("[data-docfile]").addEventListener("change", async (e) => {
+    const files = [...e.target.files];
+    if (!files.length) return;
+    docUploading.classList.remove("hidden");
+    try {
+      const metas = await uploadFiles(files, session.user.id);
+      docs.push(...metas);
+      renderDocs();
+    } catch (err) { toast("파일 업로드 실패: " + (err?.message || ""), "error"); }
+    finally { docUploading.classList.add("hidden"); e.target.value = ""; }
+  });
+
   form.onsubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -464,6 +569,8 @@ export function openAssignmentForm(existing = null) {
       due_date: fd.get("due_date") || null,
       description: (fd.get("description") || "").trim() || null,
       images,
+      files: docs,
+      tags: parseTags(fd.get("tags")),
     };
     if (!payload.title) { toast("제목을 입력하세요.", "warn"); return; }
     try {
@@ -478,7 +585,7 @@ export function openAssignmentForm(existing = null) {
         toast("등록되었습니다.", "success");
       }
       close();
-      renderSubjectChips(); renderSummary(); renderList();
+      renderSubjectChips(); renderTagChips(); renderSummary(); renderList();
     } catch (err) { toast("저장 실패: " + (err?.message || ""), "error"); }
   };
 
@@ -488,7 +595,7 @@ export function openAssignmentForm(existing = null) {
       await deleteAssignment(existing.id);
       state.assignments = state.assignments.filter((a) => a.id !== existing.id);
       toast("삭제되었습니다.", "success");
-      close(); renderSubjectChips(); renderSummary(); renderList();
+      close(); renderSubjectChips(); renderTagChips(); renderSummary(); renderList();
     } catch (err) { toast("삭제 실패: " + (err?.message || ""), "error"); }
   });
 }

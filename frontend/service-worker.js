@@ -1,7 +1,7 @@
 // ============================================================================
 //  Service Worker — PWA 오프라인 캐싱 + Web Push 수신
 // ============================================================================
-const CACHE_VERSION = "v1.0.0";
+const CACHE_VERSION = "v1.1.0";
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 
@@ -20,6 +20,9 @@ const APP_SHELL = [
   "/js/supabaseClient.js",
   "/js/dashboard.js",
   "/js/detail.js",
+  "/js/calendar.js",
+  "/js/faq.js",
+  "/js/neis.js",
   "/js/notifications.js",
   "/js/pwa.js",
   "/icons/icon.svg",

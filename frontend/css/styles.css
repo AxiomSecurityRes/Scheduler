@@ -87,6 +87,14 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 스크롤바 숨김 (가로 칩/위젯) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* 캘린더 셀 */
+.cal-cell { aspect-ratio: 1 / 1; }
+@media (max-width: 480px) { .cal-cell { aspect-ratio: auto; min-height: 56px; } }
+
 /* 스켈레톤 */
 .skeleton {
   background: linear-gradient(90deg, rgba(148,163,184,0.15) 25%, rgba(148,163,184,0.28) 37%, rgba(148,163,184,0.15) 63%);

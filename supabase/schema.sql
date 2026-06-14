@@ -76,12 +76,18 @@ create table if not exists public.assignments (
     description  text,                           -- 평가 범위 / 상세 안내
     due_date     date,                           -- 마감일 (D-Day 계산 기준)
     images       jsonb not null default '[]'::jsonb,  -- 첨부 이미지 URL 배열
+    files        jsonb not null default '[]'::jsonb,  -- 문서 첨부 [{name,url,type,size}]
+    tags         text[] not null default '{}',        -- 태그 (#수행평가양식 등)
     created_by   uuid references public.profiles (id) on delete set null,
     created_at   timestamptz not null default now(),
     updated_at   timestamptz not null default now()
 );
 
 comment on table public.assignments is '학급 공통 수행평가 / 공지사항';
+
+-- 기존 DB 업그레이드용 (이미 테이블이 있는 경우 컬럼 추가)
+alter table public.assignments add column if not exists files jsonb not null default '[]'::jsonb;
+alter table public.assignments add column if not exists tags  text[] not null default '{}';
 
 -- ---------------------------------------------------------------------------
 -- 3. personal_events : 학생 개인 일정 (학원, 개인 공부 등)
@@ -158,8 +164,26 @@ create table if not exists public.push_subscriptions (
 comment on table public.push_subscriptions is 'Web Push 구독';
 
 -- ---------------------------------------------------------------------------
+-- 7-b. faqs : 자주 묻는 질문 (관리자 고정 게시)
+-- ---------------------------------------------------------------------------
+create table if not exists public.faqs (
+    id          uuid primary key default gen_random_uuid(),
+    question    text not null,
+    answer      text not null,
+    tags        text[] not null default '{}',
+    sort_order  int not null default 0,
+    created_by  uuid references public.profiles (id) on delete set null,
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now()
+);
+
+comment on table public.faqs is '자주 묻는 질문(FAQ)';
+
+-- ---------------------------------------------------------------------------
 -- 8. 인덱스
 -- ---------------------------------------------------------------------------
+create index if not exists idx_faqs_order             on public.faqs (sort_order, created_at);
+create index if not exists idx_assignments_tags        on public.assignments using gin (tags);
 create index if not exists idx_assignments_due       on public.assignments (due_date);
 create index if not exists idx_personal_user          on public.personal_events (user_id);
 create index if not exists idx_completions_user       on public.completions (user_id);
@@ -186,6 +210,10 @@ drop trigger if exists trg_personal_touch on public.personal_events;
 create trigger trg_personal_touch before update on public.personal_events
     for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_faqs_touch on public.faqs;
+create trigger trg_faqs_touch before update on public.faqs
+    for each row execute function public.touch_updated_at();
+
 -- ============================================================================
 --  Row Level Security (RLS) 정책
 -- ============================================================================
@@ -196,6 +224,7 @@ alter table public.completions        enable row level security;
 alter table public.comments           enable row level security;
 alter table public.notifications      enable row level security;
 alter table public.push_subscriptions enable row level security;
+alter table public.faqs               enable row level security;
 
 -- ---- profiles ----
 drop policy if exists "profiles_select_all" on public.profiles;
@@ -269,6 +298,23 @@ create policy "notifications_own_update" on public.notifications
 drop policy if exists "push_own_all" on public.push_subscriptions;
 create policy "push_own_all" on public.push_subscriptions
     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ---- faqs : 모두 읽기, 관리자만 쓰기 ----
+drop policy if exists "faqs_select_all" on public.faqs;
+create policy "faqs_select_all" on public.faqs
+    for select using (auth.role() = 'authenticated');
+
+drop policy if exists "faqs_admin_insert" on public.faqs;
+create policy "faqs_admin_insert" on public.faqs
+    for insert with check (public.is_admin());
+
+drop policy if exists "faqs_admin_update" on public.faqs;
+create policy "faqs_admin_update" on public.faqs
+    for update using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "faqs_admin_delete" on public.faqs;
+create policy "faqs_admin_delete" on public.faqs
+    for delete using (public.is_admin());
 
 -- ============================================================================
 --  Storage : 이미지 첨부 버킷

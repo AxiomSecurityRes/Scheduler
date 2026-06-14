@@ -5,8 +5,10 @@
 # ============================================================================
 services:
   # --- FastAPI 백엔드 + 정적 프론트엔드(PWA) 서빙 ---
+  # 서비스 URL: https://yongin-sinchon-1-8.onrender.com
+  # (이름이 중복되면 Render 가 접미사를 붙이므로, 원하는 이름으로 바꾸세요)
   - type: web
-    name: class8-scheduler
+    name: yongin-sinchon-1-8
     runtime: python
     plan: free
     region: singapore
@@ -33,6 +35,15 @@ services:
         value: "1,3,7"
       - key: ENABLE_SCHEDULER
         value: "true"
+      # NEIS 급식·시간표 위젯 (학교명 자동 탐색 — 코드는 비워둬도 됨)
+      - key: NEIS_API_KEY
+        sync: false
+      - key: NEIS_SCHOOL_NAME
+        value: "용인신촌중학교"
+      - key: NEIS_GRADE
+        value: "1"
+      - key: NEIS_CLASS
+        value: "8"
       - key: PYTHON_VERSION
         value: "3.11.9"
 

@@ -6,6 +6,7 @@ import { supabase } from "./supabaseClient.js";
 import { session, loadSession, signOut, renderAuth, getAccessToken } from "./auth.js";
 import { renderDashboard } from "./dashboard.js";
 import { renderDetail } from "./detail.js";
+import { renderFaq } from "./faq.js";
 import {
   initNotifications, teardownNotifications, openNotificationPanel, updateBadge,
   enablePush, disablePush, isPushEnabled,
@@ -65,6 +66,9 @@ function renderAppShell() {
             </div>
           </button>
 
+          <button id="faq-btn" title="자주 묻는 질문"
+            class="w-9 h-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 grid place-items-center transition">❓</button>
+
           <button id="theme-btn" title="테마 전환"
             class="w-9 h-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 grid place-items-center transition">🌓</button>
 
@@ -86,6 +90,7 @@ function renderAppShell() {
   app.appendChild(shell);
 
   shell.querySelector("#brand").onclick = () => navigate("#/");
+  shell.querySelector("#faq-btn").onclick = () => navigate("#/faq");
   shell.querySelector("#theme-btn").onclick = (e) => {
     toggleTheme();
     e.currentTarget.textContent = getTheme() === "dark" ? "🌙" : "☀️";
@@ -180,6 +185,8 @@ function handleRoute() {
   const detailMatch = hash.match(/^#\/detail\/(.+)$/);
   if (detailMatch) {
     renderDetail(detailMatch[1], navigate);
+  } else if (hash.startsWith("#/faq")) {
+    renderFaq(navigate);
   } else {
     // 대시보드: main-content 안에 렌더 (이미 렌더된 경우 데이터만 갱신)
     renderDashboard(navigate);
