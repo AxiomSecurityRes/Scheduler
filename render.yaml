@@ -1,0 +1,49 @@
+# ============================================================================
+#  Render Blueprint (render.yaml)
+#  Render 대시보드 > New > Blueprint 에서 이 저장소를 연결하면
+#  아래 정의대로 서비스가 자동 생성됩니다.
+# ============================================================================
+services:
+  # --- FastAPI 백엔드 + 정적 프론트엔드(PWA) 서빙 ---
+  - type: web
+    name: class8-scheduler
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DEADLINE_REMINDER_DAYS
+        value: "1,3,7"
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # --- (선택) 마감 알림 전용 Cron Job ---
+  #   위 web 서비스의 ENABLE_SCHEDULER 를 false 로 두고 이 Cron 으로
+  #   알림을 보내도록 분리할 수 있습니다. 무료 플랜은 Cron 미지원일 수 있음.
+  # - type: cron
+  #   name: class8-deadline-reminder
+  #   runtime: python
+  #   schedule: "0 0 * * *"   # 매일 자정(UTC)
+  #   buildCommand: "pip install -r requirements.txt"
+  #   startCommand: "python -m backend.send_reminders"
+  #   envVars:
+  #     - fromGroup: class8-scheduler
