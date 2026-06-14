@@ -187,3 +187,71 @@ export async function uploadImages(files, userId) {
   }
   return urls;
 }
+
+// ---------------- 문서 파일 업로드 (PDF/HWPX/PPTX 등) ----------------
+// 메타데이터 객체 배열 반환: [{ name, url, type, size, path }]
+export async function uploadFiles(files, userId) {
+  const out = [];
+  for (const file of files) {
+    const safe = (file.name || "file").replace(/[^\w가-힣.\-]+/g, "_");
+    const path = `${userId}/docs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+    const { error } = await supabase.storage
+      .from(CONFIG.STORAGE_BUCKET)
+      .upload(path, file, { cacheControl: "3600", upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from(CONFIG.STORAGE_BUCKET).getPublicUrl(path);
+    out.push({
+      name: file.name || "첨부파일",
+      url: data.publicUrl,
+      type: file.type || "",
+      size: file.size || 0,
+      path,
+    });
+  }
+  return out;
+}
+
+// ---------------- FAQ ----------------
+export async function listFaqs() {
+  const { data, error } = await supabase
+    .from("faqs")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createFaq(payload, userId) {
+  const { data, error } = await supabase
+    .from("faqs")
+    .insert({ ...payload, created_by: userId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateFaq(id, payload) {
+  const { data, error } = await supabase.from("faqs").update(payload).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteFaq(id) {
+  const { error } = await supabase.from("faqs").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------- NEIS 급식/시간표 (백엔드 프록시) ----------------
+export async function fetchMeal() {
+  const res = await fetch(`${CONFIG.API_BASE}/api/neis/meal`);
+  if (!res.ok) throw new Error("급식 정보를 불러오지 못했습니다.");
+  return res.json();
+}
+
+export async function fetchTimetable() {
+  const res = await fetch(`${CONFIG.API_BASE}/api/neis/timetable`);
+  if (!res.ok) throw new Error("시간표를 불러오지 못했습니다.");
+  return res.json();
+}

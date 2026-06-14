@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     enable_scheduler: bool = True
     port: int = 8000
 
+    # NEIS 오픈 API (급식 · 시간표 위젯)
+    neis_api_key: str = ""               # https://open.neis.go.kr 인증키 (없어도 일부 동작)
+    neis_school_name: str = "용인신촌중학교"
+    neis_office_code: str = ""           # 시도교육청코드(예: 경기 J10). 비우면 학교명으로 자동 탐색
+    neis_school_code: str = ""           # 표준학교코드. 비우면 학교명으로 자동 탐색
+    neis_grade: int = 1
+    neis_class: str = "8"
+
     @property
     def origins_list(self) -> List[str]:
         """CORS 허용 오리진 목록. 비어있으면 전체 허용('*')."""

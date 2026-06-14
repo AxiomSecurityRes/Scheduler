@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .reminders import run_deadline_reminders
-from .routers import health, notifications
+from .routers import health, neis, notifications
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
@@ -67,6 +67,7 @@ app.add_middleware(
 # --- API 라우터 ---
 app.include_router(health.router)
 app.include_router(notifications.router)
+app.include_router(neis.router)
 
 
 # --- PWA 정적 파일 서빙 ---

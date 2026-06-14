@@ -66,13 +66,21 @@ export const CONFIG = {
 
 ## 4. Render 배포
 
-### 방법 A — Blueprint (`render.yaml`)
+### 방법 A — Blueprint (`render.yaml`) ⭐ 권장
 1. 이 저장소를 GitHub 에 푸시합니다.
 2. Render → **New → Blueprint** → 저장소 선택.
 3. `render.yaml` 이 자동 인식됩니다. 생성 후 **Environment** 에 아래 값을 입력:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
    - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
    - (선택) `ALLOWED_ORIGINS`, `DEADLINE_REMINDER_DAYS`
+   - (선택) `NEIS_API_KEY` — 급식·시간표 위젯 (없어도 동작, 안정성 위해 권장)
+
+> **직관적인 URL** — `render.yaml` 의 서비스 이름이 그대로 주소가 됩니다.
+> 기본값은 `yongin-sinchon-1-8` → **`https://yongin-sinchon-1-8.onrender.com`**.
+> 원하는 이름으로 바꾸면 `https://<이름>.onrender.com` 이 됩니다.
+> 이름이 이미 사용 중이면 Render 가 임의 접미사를 붙이니, 고유한 이름을 고르세요.
+> 더 깔끔한 주소가 필요하면 Render **Settings → Custom Domains** 에서
+> 보유 도메인(예: `scheduler.우리반.kr`)을 연결할 수 있습니다.
 
 ### 방법 B — 수동 Web Service
 - **New → Web Service** → 저장소 선택
@@ -117,15 +125,34 @@ uvicorn backend.main:app --reload --port 8000
 
 ---
 
-## 7. 데이터베이스 스키마 요약
+## 7. NEIS 급식 · 시간표 위젯
+
+- 대시보드 상단에 **오늘의 급식**과 **우리 반 시간표** 위젯이 표시됩니다.
+- 백엔드(`/api/neis/*`)가 나이스 오픈API를 중계하므로 CORS·키 노출 걱정이 없습니다.
+- **학교 코드를 몰라도 됩니다.** `NEIS_SCHOOL_NAME`(기본 `용인신촌중학교`)으로
+  백엔드가 표준학교코드를 자동 탐색합니다. 정확도/속도를 높이려면
+  `NEIS_OFFICE_CODE`(경기=J10)·`NEIS_SCHOOL_CODE` 를 직접 넣어도 됩니다.
+- `NEIS_GRADE=1`, `NEIS_CLASS=8` 로 학년/반을 지정합니다.
+- 무료 키 없이도 소량 조회는 되지만, 안정적 운영을 위해
+  <https://open.neis.go.kr> 에서 인증키를 발급받아 `NEIS_API_KEY` 에 넣는 것을 권장합니다.
+
+> 학교/학년/반만 다르면 환경변수만 바꿔 다른 반에도 그대로 재사용할 수 있습니다.
+
+---
+
+## 8. 데이터베이스 스키마 요약
 
 | 테이블 | 설명 | 주요 권한(RLS) |
 |---|---|---|
 | `profiles` | 사용자/권한(student·admin) | 본인만 수정, 전체 조회 |
-| `assignments` | 학급 공통 수행평가·공지 | 전체 조회, **관리자만** 쓰기 |
+| `assignments` | 학급 공통 수행평가·공지 (이미지·문서·태그 포함) | 전체 조회, **관리자만** 쓰기 |
 | `personal_events` | 학생 개인 일정 | **본인만** CRUD |
 | `completions` | 개인별 공통 일정 완료 체크 | 본인만 |
 | `comments` | Q&A (공개/비밀글) | 비밀글은 작성자·관리자만 조회 |
+| `faqs` | 자주 묻는 질문(FAQ) | 전체 조회, **관리자만** 쓰기 |
 | `notifications` | 인앱 알림 | 본인 것만 |
 | `push_subscriptions` | Web Push 구독 | 본인 것만 |
-| `storage: attachments` | 첨부 이미지 | 인증 사용자 업로드, 본인·관리자 삭제 |
+| `storage: attachments` | 첨부 이미지·문서 | 인증 사용자 업로드, 본인·관리자 삭제 |
+
+> **기존 DB 업그레이드:** `supabase/schema.sql` 을 다시 실행하면 됩니다.
+> `assignments` 에 `files`·`tags` 컬럼과 `faqs` 테이블이 `if not exists` 로 안전하게 추가됩니다.

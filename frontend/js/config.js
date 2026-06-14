@@ -21,5 +21,5 @@ export const CONFIG = {
   STORAGE_BUCKET: "attachments",
 
   // 학급 표시명
-  CLASS_NAME: "중학교 1학년 8반",
+  CLASS_NAME: "용인신촌중학교 1학년 8반",
 };

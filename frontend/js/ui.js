@@ -162,6 +162,28 @@ export function subjectColor(subject) {
   return palette[h];
 }
 
+// 파일 크기 포맷
+export function fmtBytes(bytes) {
+  if (!bytes) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  let n = bytes, i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)}${units[i]}`;
+}
+
+// 확장자/타입 기반 파일 아이콘
+export function fileIcon(name = "", type = "") {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  if (type.includes("pdf") || ext === "pdf") return "📕";
+  if (["ppt", "pptx"].includes(ext)) return "📙";
+  if (["doc", "docx"].includes(ext)) return "📘";
+  if (["xls", "xlsx", "csv"].includes(ext)) return "📗";
+  if (["hwp", "hwpx"].includes(ext)) return "📄";
+  if (["zip", "rar", "7z"].includes(ext)) return "🗜️";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "🖼️";
+  return "📎";
+}
+
 // 스피너
 export function spinner(label = "불러오는 중...") {
   return el(`
